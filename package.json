@@ -1,0 +1,22 @@
+{
+  "name": "node_js_project_2025_2",
+  "version": "1.0.0",
+  "description": "2025년 2학기 Node.js 프로젝트",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rlatjsdn818/Node_js_Project_2025_2.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rlatjsdn818/Node_js_Project_2025_2/issues"
+  },
+  "homepage": "https://github.com/rlatjsdn818/Node_js_Project_2025_2#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
