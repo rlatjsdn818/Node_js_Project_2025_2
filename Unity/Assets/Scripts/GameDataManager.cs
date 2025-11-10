@@ -56,7 +56,7 @@ public class GameDataManager : MonoBehaviour
     }
     private IEnumerator GetQuest()
     {
-        //if (currentPlayer == null) yield break;
+       // if (currentPlayer == null) yield break;
 
         using (UnityWebRequest www = UnityWebRequest.Get($"{serverUrl}/quests/{currentPlayer.player_id}"))
         {
