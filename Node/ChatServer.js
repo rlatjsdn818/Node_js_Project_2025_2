@@ -2,7 +2,6 @@ const WebSocket = require('ws');
 const iconv = require('iconv-lite');
 
 class GameServer {
-
     constructor(port){
         this.wss = new WebSocket.Server({port});
         this.clients = new Set();
@@ -10,84 +9,113 @@ class GameServer {
         this.SetupServerEvent();
         console.log(`게임 서버 포트 ${port}에서 시작 되었습니다.`);
     }
-}
-    SetupServerEvent()
-    {
-        this.wss.on('connection' , (socket) => {
 
-            socket.send(JSON.stringify(welcomData));
+    SetupServerEvent() {
+        this.wss.on('connection', (socket) => {
 
-            socket.on('message', (message) =>
-            {
-                try
-                {
-                    const data = JSON.parse(message);
-                    console.log('수신된 메시지 :' , data);
+            this.clients.add(socket);
+            const playerId = this.generatePlayerId();
 
-                    //채팅 메시지 브로드캐스트(보낸사람 전부 포함)
-                    this.broadcast({
-                        type: 'chat',
-                        playerId: playerId,
-                        message: data.message
-                    });
-                }
-                catch{
-                    console.error('메시지 파싱 에러 : ' , error);
+            this.players.set(playerId, {
+                socket: socket,
+                position: {x: 0, y: 0, z: 0},
+                rotation: {x: 0, y: 0, z: 0}
+            });
+
+            console.log(`클라이언트 접속 ID : ${playerId}, 현재 접속자 : ${this.clients.size}`);
+
+            const welcomData = {
+                type: 'connection',
+                playerId: playerId,
+                message: '서버에 연결되었습니다'
+            };
+
+            // 기존 플레이어 정보를 신규에게 전송
+            this.players.forEach((player, pid) => {
+                if (pid !== playerId) {
+                    const joinMsg = {
+                        type: 'PlayerJoin',
+                        playerId: pid,
+                        position: player.position,
+                        rotation: player.rotation
+                    };
+                    socket.send(JSON.stringify(joinMsg));
+                    console.log(`기존 플레이어 정보 전송 : ${pid} -> ${playerId}`);
                 }
             });
 
-            socket.on('close' , ()=> {
+            socket.send(JSON.stringify(welcomData));
+
+            socket.on('message', (message) => {
+                try {
+                    const data = JSON.parse(message);
+
+                    if (data.type === 'chat') {
+                        console.log('수신된 메시지 :', data);
+
+                        this.broadcast({
+                            type: 'chat',
+                            playerId: playerId,
+                            message: data.message
+                        });
+                    }
+                    else if (data.type === 'positionUpdate') {
+                        const player = this.players.get(playerId);
+                        if (player) {
+                            if (data.position) player.position = data.position;
+                            if (data.rotation) player.rotation = data.rotation;
+                        }
+
+                        this.broadcast({
+                            type: 'positionUpdate',
+                            playerId: playerId,
+                            position: player.position,
+                            rotation: player.rotation
+                        }, socket);
+                    }
+                }
+                catch (error) {
+                    console.error('메시지 파싱 에러 :', error);
+                }
+            });
+
+            socket.on('close', () => {
                 this.clients.delete(socket);
                 this.players.delete(playerId);
 
                 this.broadcast({
-                    type : 'playerDisconnect',
-                    playerId : playerId
+                    type: 'playerDisconnect',
+                    playerId: playerId
                 });
 
                 console.log(`클라이언트 퇴장 ID : ${playerId}, 현재 접속자 : ${this.clients.size}`);
             });
 
-            socket.on('error' , (error) => {
-                console.error('소켓 에러 : ' , error);
+            socket.on('error', (error) => {
+                console.error('소켓 에러 :', error);
             });
-
-            this.clients.add(socket);
-            const playerId = this.generatePlayerId();
-
-
-        this.players.set(playerId, {
-            socket : socket,
-            position: {x:0, y:0, z:0}
         });
-        console.log(`클라이언트 접속 ID : ${playerId}, 현재 접속자 : ${this.clients.size}`);
+    }
 
-        const welcomData = {
-            type : 'connection',
-            playerId : playerId,
-            message : '서버에 연결되었습니다'
-        };
+    broadcast(dat, excludeSocket = null) {
+        const message = JSON.stringify(dat);
+        let sentCount = 0;
 
-        socket.send(JSON.stringify(welcomData));
-    });
-
-    broadcast(data)
-    {
-        const message = JSON.stringify(data);
-        this.clients.forEach(client =>
-        {
-            if(client.readyState === WebSocket.OPEN)
-            {
+        this.clients.forEach(client => {
+            if (client !== excludeSocket && client.readyState === WebSocket.OPEN) {
                 client.send(message);
+                sentCount++;
             }
         });
+
+        if (dat.type !== 'positionUpdate') {
+            console.log(`브로드캐스트 완료 ${dat.type} (${sentCount} 명에게 전송)`);
+        }
     }
 
-    generatePlayerId()
-    {
-        return 'player_' + Math.random().toString(36).substr(2,9);
+    generatePlayerId() {
+        return 'player_' + Math.random().toString(36).substr(2, 9);
     }
 }
-
 
 const gameServer = new GameServer(3000);
